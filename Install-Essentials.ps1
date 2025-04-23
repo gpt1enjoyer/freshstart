@@ -78,18 +78,44 @@ $categories = @{
     )
 }
 
-# Display menu and read selection
-Write-Host "Select categories to install (comma-separated numbers):`n"
-$menu = @()
-$idx = 1
+# Use Windows Forms for checkbox UI
+Add-Type -AssemblyName System.Windows.Forms
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "FreshStart - Select Categories"
+$form.Size = New-Object System.Drawing.Size(350,350)
+$form.StartPosition = "CenterScreen"
+
+$okButton = New-Object System.Windows.Forms.Button
+$okButton.Text = "OK"
+$okButton.Location = New-Object System.Drawing.Point(120,260)
+$okButton.Size = New-Object System.Drawing.Size(100,30)
+$okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+$form.AcceptButton = $okButton
+$form.Controls.Add($okButton)
+
+$checkboxes = @{}
+$y = 20
 foreach ($cat in $categories.Keys) {
-    Write-Host "[$idx] $cat"
-    $menu += $cat
-    $idx++
+    $cb = New-Object System.Windows.Forms.CheckBox
+    $cb.Text = $cat
+    $cb.Location = New-Object System.Drawing.Point(30, $y)
+    $cb.Size = New-Object System.Drawing.Size(250,30)
+    $form.Controls.Add($cb)
+    $checkboxes[$cat] = $cb
+    $y += 35
 }
-$sel = Read-Host "Enter choices"
-$nums = $sel -split ',' | % { $_.Trim() } | Where-Object { $_ -match '^[0-9]+$' }
-$chosenCats = $nums | % { $menu[$_ - 1] } | Where-Object { $_ }
+
+$result = $form.ShowDialog()
+if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
+    Write-Host "No categories selected. Exiting."
+    exit
+}
+
+$chosenCats = $categories.Keys | Where-Object { $checkboxes[$_].Checked }
+if (-not $chosenCats) {
+    Write-Host "No categories selected. Exiting."
+    exit
+}
 
 # Aggregate apps
 $toInstall = foreach ($c in $chosenCats) { $categories[$c] }
