@@ -27,7 +27,7 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 
-function Create-DesktopShortcut {
+function New-DesktopShortcut {
     param(
         [string]$Name,
         [string]$TargetPath
@@ -78,47 +78,58 @@ $categories = @{
     )
 }
 
-# Use Windows Forms for checkbox UI
+# Use Windows Forms for app-level checkbox UI grouped by category
 Add-Type -AssemblyName System.Windows.Forms
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "FreshStart - Select Categories"
-$form.Size = New-Object System.Drawing.Size(350,350)
+$form.Text = "FreshStart - Select Apps"
+$form.Size = New-Object System.Drawing.Size(450, 600)
 $form.StartPosition = "CenterScreen"
+$form.AutoScroll = $true
 
 $okButton = New-Object System.Windows.Forms.Button
 $okButton.Text = "OK"
-$okButton.Location = New-Object System.Drawing.Point(120,260)
+$okButton.Location = New-Object System.Drawing.Point(170,520)
 $okButton.Size = New-Object System.Drawing.Size(100,30)
 $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
 $form.AcceptButton = $okButton
 $form.Controls.Add($okButton)
 
-$checkboxes = @{}
+$appCheckboxes = @()
 $y = 20
 foreach ($cat in $categories.Keys) {
-    $cb = New-Object System.Windows.Forms.CheckBox
-    $cb.Text = $cat
-    $cb.Location = New-Object System.Drawing.Point(30, $y)
-    $cb.Size = New-Object System.Drawing.Size(250,30)
-    $form.Controls.Add($cb)
-    $checkboxes[$cat] = $cb
-    $y += 35
+    $label = New-Object System.Windows.Forms.Label
+    $label.Text = $cat
+    $label.Font = New-Object System.Drawing.Font("Segoe UI",10,[System.Drawing.FontStyle]::Bold)
+    $label.Location = New-Object System.Drawing.Point(20, $y)
+    $label.Size = New-Object System.Drawing.Size(400,24)
+    $form.Controls.Add($label)
+    $y += 26
+
+    foreach ($app in $categories[$cat]) {
+        $cb = New-Object System.Windows.Forms.CheckBox
+        $cb.Text = $app.Name
+        $cb.Tag = $app
+        $cb.Location = New-Object System.Drawing.Point(40, $y)
+        $cb.Size = New-Object System.Drawing.Size(350,22)
+        $form.Controls.Add($cb)
+        $appCheckboxes += $cb
+        $y += 24
+    }
+    $y += 10
 }
 
 $result = $form.ShowDialog()
 if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
-    Write-Host "No categories selected. Exiting."
+    Write-Host "No apps selected. Exiting."
     exit
 }
 
-$chosenCats = $categories.Keys | Where-Object { $checkboxes[$_].Checked }
-if (-not $chosenCats) {
-    Write-Host "No categories selected. Exiting."
+$toInstall = $appCheckboxes | Where-Object { $_.Checked } | ForEach-Object { $_.Tag }
+if (-not $toInstall) {
+    Write-Host "No apps selected. Exiting."
     exit
 }
 
-# Aggregate apps
-$toInstall = foreach ($c in $chosenCats) { $categories[$c] }
 
 # Install and create shortcuts
 foreach ($app in $toInstall) {
